@@ -69,61 +69,45 @@
             <UsernameToolTip id="opponent-username-container" :username="gameStore.opponentUsername" />
             <div class="opponent-cards-container">
               <div id="opponent-hand-cards" class="d-flex justify-center align-start">
-                <Transition :name="Transitions.SLIDE_DOWN" mode="out-in">
-                  <TransitionGroup
-                    v-if="showOpponentHand"
-                    id="opponent-hand-glasses"
-                    key="opponent-hand-glasses"
-                    class="opponent-hand-wrapper"
-                    tag="div"
-                    :name="Transitions.SLIDE_UP"
-                  >
-                    <v-slide-group
-                      v-if="$vuetify.display.xs"
-                      key="opponent-slide-group"
-                      selected-class="success"
-                      :show-arrows="true"
-                    >
-                      <v-slide-group-item v-for="card in gameStore.opponent.hand" :key="card.id">
-                        <GameCard
-                          :key="card.id"
-                          :suit="card.suit"
-                          :rank="card.rank"
-                          :is-revealed="card.isRevealed"
-                          :data-opponent-hand-card="`${card.rank}-${card.suit}`"
-                          class="opponent-hand-card-revealed"
-                        />
-                      </v-slide-group-item>
-                    </v-slide-group>
-                    <GameCard
-                      v-for="card in gameStore.opponent.hand"
-                      v-else
-                      :key="card.id"
-                      :suit="card.suit"
-                      :rank="card.rank"
-                      :is-revealed="card.isRevealed"
-                      :data-opponent-hand-card="`${card.rank}-${card.suit}`"
-                      class="opponent-hand-card-revealed"
-                    />
-                  </TransitionGroup>
-                  <TransitionGroup
-                    v-else
-                    key="opponent-hand"
-                    tag="div"
-                    :name="Transitions.SLIDE_UP"
-                    class="opponent-hand-wrapper"
-                  >
-                    <GameCard
-                      v-for="card in gameStore.opponent.hand"
-                      :key="card.handKey"
-                      :suit="card.suit ?? undefined"
-                      :rank="card.rank ?? undefined"
-                      :is-revealed="card.isRevealed"
-                      :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
-                      class="opponent-card-back-wrapper opponent-hand-card mx-2"
-                    />
-                  </TransitionGroup>
-                </Transition>
+                <!--
+                  One GameCard per card whether the hand is hidden or revealed. Keying on handKey keeps
+                  each card on the same node as it is revealed or concealed, so it flips in place
+                -->
+                <div v-if="$vuetify.display.xs" class="opponent-hand-wrapper">
+                  <!--
+                    Cards go straight into the slide group: VSlideGroupItem renders no element of its own,
+                    so a card wrapped in one can't run the TransitionGroup's enter/leave transitions
+                  -->
+                  <v-slide-group :show-arrows="true">
+                    <TransitionGroup :name="Transitions.SLIDE_UP">
+                      <GameCard
+                        v-for="card in gameStore.opponent.hand"
+                        :key="card.handKey"
+                        :suit="card.suit ?? undefined"
+                        :rank="card.rank ?? undefined"
+                        :is-revealed="card.isRevealed"
+                        :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
+                        :class="opponentHandCardClass"
+                      />
+                    </TransitionGroup>
+                  </v-slide-group>
+                </div>
+                <TransitionGroup
+                  v-else
+                  tag="div"
+                  :name="Transitions.SLIDE_UP"
+                  class="opponent-hand-wrapper"
+                >
+                  <GameCard
+                    v-for="card in gameStore.opponent.hand"
+                    :key="card.handKey"
+                    :suit="card.suit ?? undefined"
+                    :rank="card.rank ?? undefined"
+                    :is-revealed="card.isRevealed"
+                    :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
+                    :class="opponentHandCardClass"
+                  />
+                </TransitionGroup>
               </div>
             </div>
           </div>
@@ -755,6 +739,11 @@ export default {
     showOpponentHand() {
       return this.gameStore.showOpponentHand;
     },
+    opponentHandCardClass() {
+      return this.showOpponentHand ?
+        'opponent-hand-card-revealed' :
+        'opponent-card-back-wrapper opponent-hand-card mx-2';
+    },
   },
   watch: {
     logs: function () {
@@ -1187,10 +1176,8 @@ export default {
     height: 100%;
     background: rgba(0, 0, 0, 0.46);
 
-    & #opponent-hand-glasses {
-      .opponent-hand-card-revealed {
-        transform: scale(0.8);
-      }
+    & .opponent-hand-card-revealed {
+      transform: scale(0.8);
     }
     & .opponent-hand-wrapper {
       display: flex;
@@ -1614,9 +1601,6 @@ export default {
   #opponent-hand {
     & #opponent-hand-cards {
       height: 80%;
-      & #opponent-hand-glasses {
-        margin-top: 0;
-      }
     }
   }
   .player-cards-container {
