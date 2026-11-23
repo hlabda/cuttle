@@ -49,59 +49,60 @@ function markClipStart(holdMs = 600) {
   cy.get('#clip-start-marker').then(($el) => $el.remove());
 }
 
+// Shared pacing helpers, at module scope so every topic/seat block can reuse them
+function playerMoveWithDelay(playedCard, moveType, firstClickDelay = 1500, secondClickDelay = 800) {
+  cy.wait(firstClickDelay);
+  cy.get(`[data-player-hand-card=${playedCard.rank}-${playedCard.suit}]`).click();
+  cy.wait(secondClickDelay);
+  cy.get(`[data-move-choice=${moveType}]`).click();
+}
+function playerPointsWithDelay(card, firstClickDelay = 4000, secondClickDelay = 1500) {
+  playerMoveWithDelay(card, 'points', firstClickDelay, secondClickDelay);
+}
+
+function playerScuttleWithDelay(
+  playedCard,
+  targetCard,
+  firstClickDelay = 1500,
+  secondClickDelay = 800,
+  thirdClickDelay = 1500
+) {
+  playerMoveWithDelay(playedCard, 'scuttle', firstClickDelay, secondClickDelay);
+  cy.wait(thirdClickDelay);
+  cy.get(`[data-opponent-point-card=${targetCard.rank}-${targetCard.suit}]`).click();
+}
+
+function playerJackWithDelay(
+  playedCard,
+  targetCard,
+  firstClickDelay = 1500,
+  secondClickDelay = 800,
+  thirdClickDelay = 1500
+) {
+  playerMoveWithDelay(playedCard, 'jack', firstClickDelay, secondClickDelay);
+  cy.wait(thirdClickDelay);
+  cy.get(`[data-opponent-point-card=${targetCard.rank}-${targetCard.suit}]`).click();
+}
+
+function opponentPointsWithDelay(playedCard, delay = 2000) {
+  cy.wait(delay);
+  cy.playPointsOpponent(playedCard);
+}
+
+function opponentScuttleWithDelay(playedCard, targetCard, delay = 2000) {
+  cy.wait(delay);
+  cy.scuttleOpponent(playedCard, targetCard);
+}
+
+function opponentDrawWithDelay(delay = 1000) {
+  cy.wait(delay);
+  cy.drawCardOpponent();
+}
+
 describe('Video Playground', () => {
   beforeEach(() => {
     cy.setupGameAsP0();
   });
-
-  function playerMoveWithDelay(playedCard, moveType, firstClickDelay = 1500, secondClickDelay = 800) {
-    cy.wait(firstClickDelay);
-    cy.get(`[data-player-hand-card=${playedCard.rank}-${playedCard.suit}]`).click();
-    cy.wait(secondClickDelay);
-    cy.get(`[data-move-choice=${moveType}]`).click();
-  }
-  function playerPointsWithDelay(card, firstClickDelay = 4000, secondClickDelay = 1500) {
-    playerMoveWithDelay(card, 'points', firstClickDelay, secondClickDelay);
-  }
-
-  function playerScuttleWithDelay(
-    playedCard,
-    targetCard,
-    firstClickDelay = 1500,
-    secondClickDelay = 800,
-    thirdClickDelay = 1500
-  ) {
-    playerMoveWithDelay(playedCard, 'scuttle', firstClickDelay, secondClickDelay);
-    cy.wait(thirdClickDelay);
-    cy.get(`[data-opponent-point-card=${targetCard.rank}-${targetCard.suit}]`).click();
-  }
-
-  function playerJackWithDelay(
-    playedCard,
-    targetCard,
-    firstClickDelay = 1500,
-    secondClickDelay = 800,
-    thirdClickDelay = 1500
-  ) {
-    playerMoveWithDelay(playedCard, 'jack', firstClickDelay, secondClickDelay);
-    cy.wait(thirdClickDelay);
-    cy.get(`[data-opponent-point-card=${targetCard.rank}-${targetCard.suit}]`).click();
-  }
-
-  function opponentPointsWithDelay(playedCard, delay = 2000) {
-    cy.wait(delay);
-    cy.playPointsOpponent(playedCard);
-  }
-
-  function opponentScuttleWithDelay(playedCard, targetCard, delay = 2000) {
-    cy.wait(delay);
-    cy.scuttleOpponent(playedCard, targetCard);
-  }
-
-  function opponentDrawWithDelay(delay = 1000) {
-    cy.wait(delay);
-    cy.drawCardOpponent();
-  }
 
   describe('Initiative Tutorial', () => {
     const initialState = {
@@ -1474,6 +1475,69 @@ describe('Offense Tutorial', () => {
 
       cy.get('#game-over-dialog').should('be.visible');
       cy.wait(1000);
+    });
+  });
+});
+
+describe('Opponent Hand Reveal', () => {
+  // Hidden opponent cards render with an empty data-opponent-hand-card value
+  const HIDDEN_OPPONENT_CARD = '[data-opponent-hand-card=""]';
+  const FACE_UP_OPPONENT_CARD = '[data-opponent-hand-card]:not([data-opponent-hand-card=""])';
+
+  const glassesFixture = {
+    p0Hand: [ Card.EIGHT_OF_SPADES, Card.ACE_OF_CLUBS, Card.FOUR_OF_DIAMONDS ],
+    p0Points: [ Card.TEN_OF_CLUBS ],
+    p0FaceCards: [],
+    p1Hand: [ Card.KING_OF_HEARTS, Card.THREE_OF_CLUBS, Card.NINE_OF_DIAMONDS, Card.SIX_OF_SPADES, Card.ACE_OF_HEARTS ],
+    p1Points: [ Card.SEVEN_OF_HEARTS ],
+    p1FaceCards: [],
+  };
+
+  function assertOpponentHand(hiddenCount, faceUpCount) {
+    cy.get(HIDDEN_OPPONENT_CARD).should('have.length', hiddenCount);
+    cy.get(FACE_UP_OPPONENT_CARD).should('have.length', faceUpCount);
+  }
+
+  describe('Player perspective (P0)', () => {
+    beforeEach(() => cy.setupGameAsP0());
+
+    it('Player plays a glasses eight and the hidden opponent hand flips face up', () => {
+      cy.loadGameFixture(0, glassesFixture);
+      markClipStart();
+      assertOpponentHand(5, 0);
+
+      // START RECORDING //
+
+      // Player plays the eight of spades as glasses, revealing the opponent's hand
+      playerMoveWithDelay(Card.EIGHT_OF_SPADES, 'faceCard');
+      assertOpponentHand(0, 5);
+
+      // Opponent draws; the new card arrives face up
+      opponentDrawWithDelay(3500);
+      assertOpponentHand(0, 6);
+      cy.wait(2500);
+    });
+
+    it('Player plays a glasses eight while one opponent card is already revealed', () => {
+      cy.loadGameFixture(0, {
+        ...glassesFixture,
+        // Both players have already seen the king, so it sits face up in the otherwise hidden hand
+        revealedCards: [ Card.KING_OF_HEARTS ],
+      });
+      markClipStart();
+      assertOpponentHand(4, 1);
+      cy.get('[data-opponent-hand-card=13-2]').should('be.visible');
+
+      // START RECORDING //
+
+      // Player plays the eight of spades as glasses, revealing the rest of the opponent's hand
+      playerMoveWithDelay(Card.EIGHT_OF_SPADES, 'faceCard');
+      assertOpponentHand(0, 5);
+
+      // Opponent draws; the new card arrives face up
+      opponentDrawWithDelay(3500);
+      assertOpponentHand(0, 6);
+      cy.wait(2500);
     });
   });
 });
