@@ -87,7 +87,8 @@
                         :rank="card.rank ?? undefined"
                         :is-revealed="card.isRevealed"
                         :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
-                        :class="opponentHandCardClass"
+                        class="opponent-hand-card mx-2"
+                        animate-flip
                       />
                     </TransitionGroup>
                   </v-slide-group>
@@ -105,7 +106,8 @@
                     :rank="card.rank ?? undefined"
                     :is-revealed="card.isRevealed"
                     :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
-                    :class="opponentHandCardClass"
+                    class="opponent-hand-card mx-2"
+                    animate-flip
                   />
                 </TransitionGroup>
               </div>
@@ -739,11 +741,6 @@ export default {
     showOpponentHand() {
       return this.gameStore.showOpponentHand;
     },
-    opponentHandCardClass() {
-      return this.showOpponentHand ?
-        'opponent-hand-card-revealed' :
-        'opponent-card-back-wrapper opponent-hand-card mx-2';
-    },
   },
   watch: {
     logs: function () {
@@ -1176,8 +1173,12 @@ export default {
     height: 100%;
     background: rgba(0, 0, 0, 0.46);
 
-    & .opponent-hand-card-revealed {
-      transform: scale(0.8);
+    // Hidden and revealed cards use the same slot, without a size transition.
+    & .opponent-hand-card {
+      width: 7vw;
+      max-width: calc(16vh / 1.45);
+      max-height: 16vh;
+      flex: 0 0 auto;
     }
     & .opponent-hand-wrapper {
       display: flex;
@@ -1185,18 +1186,6 @@ export default {
       position: relative;
       height: 100%;
       width: 100%;
-      transform: rotate(180deg);
-
-      & .opponent-card-back-wrapper {
-        height: 90%;
-        width: 7vw;
-        display: inline-block;
-        position: relative;
-        & .opponent-card-back {
-          height: 100%;
-          width: 100%;
-        }
-      }
     }
   }
 }
@@ -1601,6 +1590,10 @@ export default {
   #opponent-hand {
     & #opponent-hand-cards {
       height: 80%;
+      & .opponent-hand-card {
+        width: calc(10vh / 1.45);
+        max-height: 10vh;
+      }
     }
   }
   .player-cards-container {

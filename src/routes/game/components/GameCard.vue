@@ -43,25 +43,30 @@
         >
       </template>
     </Transition>
-    <Transition :name="Transitions.CARD_FLIP">
-      <img
-        v-if="isGlasses"
-        :src="`/img/cards/glasses-${suitName.toLowerCase()}.png`"
-        :alt="`Glasses - ${cardName}`"
+    <div :class="{ 'opponent-card-surface': animateFlip }">
+      <Transition
+        :name="animateFlip ? 'opponent-card-flip' : Transitions.CARD_FLIP"
+        :mode="animateFlip ? 'out-in' : undefined"
       >
-      <img
-        v-else-if="isBack"
-        src="/img/cards/card-back.png"
-        class="opponent-card-back"
-        alt="card back"
-      >
-      <img
-        v-else
-        :src="`/img/cards/card-${suit}-${rank}.svg`"
-        :alt="cardName"
-        class="face-card"
-      >
-    </Transition>
+        <img
+          v-if="isGlasses"
+          :src="`/img/cards/glasses-${suitName.toLowerCase()}.png`"
+          :alt="`Glasses - ${cardName}`"
+        >
+        <img
+          v-else-if="isBack"
+          src="/img/cards/card-back.png"
+          class="opponent-card-back"
+          alt="card back"
+        >
+        <img
+          v-else
+          :src="`/img/cards/card-${suit}-${rank}.svg`"
+          :alt="cardName"
+          class="face-card"
+        >
+      </Transition>
+    </div>
   </v-card>
 </template>
 
@@ -78,6 +83,10 @@ export default {
     rank: {
       type: Number,
       default: undefined,
+    },
+    animateFlip: {
+      type: Boolean,
+      default: false,
     },
     isSelected: {
       type: Boolean,
@@ -266,6 +275,18 @@ export default {
 .revealed-icon {
   background: rgb(var(--v-theme-base-light));
   border-radius: 50%;
+}
+// Keep the slot occupied while out-in swaps the face at the edge of the flip.
+.opponent-card-surface {
+  width: 100%;
+  aspect-ratio: 1 / 1.45;
+  perspective: 800px;
+
+  & img {
+    height: 100%;
+    object-fit: fill;
+    backface-visibility: hidden;
+  }
 }
 .opponent-card-back {
   border-radius: 5px;

@@ -112,6 +112,26 @@
   transform: rotateY(0deg);
 }
 
+// Opponent hand faces turn out, then turn in on the same fixed-size card slot.
+// Two half turns share the existing duration and reduced-motion preference.
+.opponent-card-flip-enter-active,
+.opponent-card-flip-leave-active {
+  transition: transform calc(var(--duration-slow) / 2) ease-in-out;
+}
+
+.opponent-card-flip-enter-from {
+  transform: rotateY(-90deg);
+}
+
+.opponent-card-flip-leave-to {
+  transform: rotateY(90deg);
+}
+
+.opponent-card-flip-enter-to,
+.opponent-card-flip-leave-from {
+  transform: rotateY(0deg);
+}
+
 // Per-card staggered slide-in for seven reveal.
 // Card starts at deck center (wrapper's translate offset cancels the card start offset).
 // animation-fill-mode: both keeps card 2 invisible during its delay.
