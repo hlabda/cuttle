@@ -60,44 +60,77 @@ describe('Game View Layout', () => {
     });
   });
 
-  // Opponent hand with five cards; the revealed version gives the player a glasses eight
+  // A full opponent hand is the hardest case to fit; the revealed version gives the player glasses
+  const fullOpponentHand = [
+    Card.TWO_OF_HEARTS,
+    Card.THREE_OF_DIAMONDS,
+    Card.FOUR_OF_SPADES,
+    Card.FIVE_OF_HEARTS,
+    Card.SIX_OF_DIAMONDS,
+    Card.SEVEN_OF_SPADES,
+    Card.NINE_OF_HEARTS,
+    Card.TEN_OF_DIAMONDS,
+  ];
   const opponentHandFixture = {
     p0Hand: [ Card.ACE_OF_CLUBS ],
     p0Points: [],
     p0FaceCards: [],
-    p1Hand: [
-      Card.TWO_OF_HEARTS,
-      Card.THREE_OF_DIAMONDS,
-      Card.FOUR_OF_SPADES,
-      Card.FIVE_OF_HEARTS,
-      Card.SIX_OF_DIAMONDS,
-    ],
+    p1Hand: fullOpponentHand,
     p1Points: [],
     p1FaceCards: [],
   };
-  const hiddenOpponentCard = '[data-opponent-hand-card=""]';
-  const revealedOpponentCard = '[data-opponent-hand-card]:not([data-opponent-hand-card=""])';
+  const opponentHandStates = {
+    hidden: {
+      fixture: opponentHandFixture,
+      cards: '[data-opponent-hand-card=""]',
+    },
+    revealed: {
+      fixture: { ...opponentHandFixture, p0FaceCards: [ Card.EIGHT_OF_CLUBS ] },
+      cards: '[data-opponent-hand-card]:not([data-opponent-hand-card=""])',
+    },
+  };
+  // Cypress device presets so the hand is checked across real screen shapes. Phones and tablets
+  // are checked in both orientations; laptop presets are already landscape, and passing
+  // 'landscape' to them would swap them into a tall portrait screen
+  const opponentHandScreens = [
+    [ 'iphone-se2', 'portrait' ],
+    [ 'iphone-se2', 'landscape' ],
+    [ 'iphone-xr', 'portrait' ],
+    [ 'ipad-2', 'portrait' ],
+    [ 'ipad-2', 'landscape' ],
+    [ 'macbook-13' ],
+    [ 'macbook-16' ],
+  ];
 
-  [ 'hidden', 'revealed' ].forEach((handState) => {
-    overflowViewports.forEach(({ name, width, height }) => {
-      it(`Keeps the ${handState} opponent hand clear of the opponent score at ${name} width`, () => {
-        cy.viewport(width, height);
-        if (handState === 'revealed') {
-          cy.loadGameFixture(0, { ...opponentHandFixture, p0FaceCards: [ Card.EIGHT_OF_CLUBS ] });
-          cy.get(revealedOpponentCard).should('have.length', 5);
-        } else {
-          cy.loadGameFixture(0, opponentHandFixture);
-          cy.get(hiddenOpponentCard).should('have.length', 5);
-        }
+  Object.entries(opponentHandStates).forEach(([ handState, { fixture, cards } ]) => {
+    opponentHandScreens.forEach((screen) => {
+      it(`Fits the ${handState} opponent hand on ${screen.join(' in ')}`, () => {
+        cy.viewport(...screen);
+        cy.loadGameFixture(0, fixture);
+        cy.get(cards).should('have.length', fullOpponentHand.length);
+        // Measure only once the cards have finished sliding and flipping into place
+        cy.get('#opponent-hand-cards').should(($hand) => {
+          // The game runs in its own window, so use that window's CSSTransition for instanceof
+          const { CSSTransition } = $hand[0].ownerDocument.defaultView;
+          const moving = $hand[0].getAnimations({ subtree: true })
+            .filter((animation) => animation instanceof CSSTransition);
+          expect(moving, 'opponent hand transitions still running').to.have.length(0);
+        });
 
-        // Every opponent card picture must end above the top of the POINTS / GOAL label.
-        // Measure the img, not the card element: the picture can spill out of the card's box
-        cy.get('#opponent-score').then(($score) => {
-          const scoreTop = $score[0].getBoundingClientRect().top;
-          cy.get('[data-opponent-hand-card] img').each(($picture) => {
-            const { bottom } = $picture[0].getBoundingClientRect();
-            expect(bottom, 'opponent card picture bottom edge').to.be.at.most(scoreTop);
+        cy.document().then((document) => {
+          const scoreTop = document.querySelector('#opponent-score').getBoundingClientRect().top;
+          const handTop = document.querySelector('#opponent-hand-cards').getBoundingClientRect().top;
+
+          // Measure each card's picture rather than the card element, since the picture can spill
+          // out of the card's box. It must stay above the score and keep part of itself on screen
+          document.querySelectorAll('[data-opponent-hand-card] img').forEach((picture) => {
+            const { bottom } = picture.getBoundingClientRect();
+            expect(bottom, 'opponent card bottom edge').to.be.at.most(scoreTop);
+            expect(bottom, 'opponent card visible below the top of its strip').to.be.above(handTop);
           });
+
+          // A full hand must never make the page scroll sideways
+          expect(document.documentElement.scrollWidth).to.equal(document.documentElement.clientWidth);
         });
       });
     });

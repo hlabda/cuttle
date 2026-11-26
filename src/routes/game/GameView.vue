@@ -76,7 +76,9 @@
                 <div v-if="$vuetify.display.xs" class="opponent-hand-wrapper">
                   <!--
                     Cards go straight into the slide group: VSlideGroupItem renders no element of its own,
-                    so a card wrapped in one can't run the TransitionGroup's enter/leave transitions
+                    so a card wrapped in one can't run the TransitionGroup's enter/leave transitions.
+                    Cards keep GameCard's own spacing, as in the player's hand carousel, so part of the
+                    next card peeks out at the edge and shows the hand can be scrolled
                   -->
                   <v-slide-group :show-arrows="true">
                     <TransitionGroup :name="Transitions.SLIDE_UP">
@@ -87,7 +89,7 @@
                         :rank="card.rank ?? undefined"
                         :is-revealed="card.isRevealed"
                         :data-opponent-hand-card="card.isHidden ? '' : `${card.rank}-${card.suit}`"
-                        class="opponent-hand-card mx-2"
+                        class="opponent-hand-card"
                         animate-flip
                       />
                     </TransitionGroup>
@@ -1173,19 +1175,16 @@ export default {
     height: 100%;
     background: rgba(0, 0, 0, 0.46);
 
-    // Hidden and revealed cards use the same slot, without a size transition.
-    & .opponent-hand-card {
-      width: 7vw;
-      max-width: calc(16vh / 1.45);
-      max-height: 16vh;
-      flex: 0 0 auto;
-    }
+    // Cards take their size from GameCard, which already scales them for every screen
     & .opponent-hand-wrapper {
       display: flex;
       justify-content: center;
       position: relative;
       height: 100%;
       width: 100%;
+      // Hang the cards from the top edge, as if held across the table: whatever doesn't fit in
+      // the strip runs off the top of the screen instead of covering the opponent's score
+      transform: rotate(180deg);
     }
   }
 }
@@ -1590,10 +1589,6 @@ export default {
   #opponent-hand {
     & #opponent-hand-cards {
       height: 80%;
-      & .opponent-hand-card {
-        width: calc(10vh / 1.45);
-        max-height: 10vh;
-      }
     }
   }
   .player-cards-container {
