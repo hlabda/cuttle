@@ -69,6 +69,39 @@ for (const [ width, height ] of [ [ 1280, 800 ], [ 390, 844 ] ]) {
       });
     });
 
+    it('Fades in the eye after a glasses reveal and keeps the already-revealed eye visible', () => {
+      cy.loadGameFixture(0, { ...fixture, revealedCards: [ Card.KING_OF_HEARTS ] });
+      const newlyRevealed = '[data-opponent-hand-card="3-0"]';
+      const knownEye = '[data-opponent-hand-card="13-2"] [data-revealed-icon]';
+      const phases = [];
+      cy.get(knownEye).should('have.css', 'opacity', '1');
+      cy.document().then((doc) => {
+        const opacity = (element) => doc.defaultView.getComputedStyle(element).opacity;
+        doc.addEventListener('transitionstart', ({ target, propertyName }) => {
+          const card = target.closest(newlyRevealed);
+          if (!card) {
+            return;
+          }
+          if (propertyName === 'transform' && target.matches('img')) {
+            const eye = card.querySelector('[data-revealed-icon]');
+            const side = target.matches('.opponent-card-back') ? 'back' : 'face';
+            phases.push([ side, eye ? opacity(eye) : '0', opacity(doc.querySelector(knownEye)) ]);
+          } else if (propertyName === 'opacity' && target.matches('[data-revealed-icon]')) {
+            const flipping = card.querySelector('.opponent-card-flip-enter-active, .opponent-card-flip-leave-active');
+            phases.push([ 'eye', Boolean(flipping) ]);
+          }
+        });
+      });
+      cy.get('[data-player-hand-card="8-3"]').click();
+      cy.get('[data-move-choice="faceCard"]').click();
+      cy.get(`${newlyRevealed} [data-revealed-icon]`).should('have.css', 'opacity', '1');
+      cy.window().then((win) => {
+        const reducedMotion = win.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const expected = [ [ 'back', '0', '1' ], [ 'face', '0', '1' ], [ 'eye', false ] ];
+        expect(phases).to.deep.equal(reducedMotion ? [] : expected);
+      });
+    });
+
     it('Reveals the opponent hand in place when the deck is exhausted', () => {
       cy.loadGameFixture(0, fixture);
       cy.get(hiddenCards).should('have.length', 3);

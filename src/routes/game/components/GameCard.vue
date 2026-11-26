@@ -18,16 +18,18 @@
       aria-hidden="false"
       role="img"
     />
-    <v-icon
-      v-if="isRevealed"
-      class="player-card-icon revealed-icon mr-1 mt-1"
-      color="base-dark"
-      icon="mdi-eye"
-      :aria-label="$t('game.revealedIcon')"
-      aria-hidden="false"
-      role="img"
-      data-revealed-icon
-    />
+    <Transition name="revealed-icon">
+      <v-icon
+        v-if="isRevealed"
+        class="player-card-icon revealed-icon mr-1 mt-1"
+        color="base-dark"
+        icon="mdi-eye"
+        :aria-label="$t('game.revealedIcon')"
+        aria-hidden="false"
+        role="img"
+        data-revealed-icon
+      />
+    </Transition>
     <v-overlay
       :model-value="isValidTarget"
       contained
@@ -275,6 +277,16 @@ export default {
 .revealed-icon {
   background: rgb(var(--v-theme-base-light));
   border-radius: 50%;
+  transition: opacity var(--duration-fast) ease;
+}
+.revealed-icon-enter-from {
+  opacity: 0;
+}
+// Wait for both halves of this card's flip before fading in its eye.
+.player-card:has(.opponent-card-flip-leave-active, .opponent-card-flip-enter-active) .revealed-icon,
+.revealed-icon-leave-active {
+  opacity: 0;
+  transition: none;
 }
 // Keep the slot occupied while out-in swaps the face at the edge of the flip.
 .opponent-card-surface {
