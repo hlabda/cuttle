@@ -60,6 +60,49 @@ describe('Game View Layout', () => {
     });
   });
 
+  // Opponent hand with five cards; the revealed version gives the player a glasses eight
+  const opponentHandFixture = {
+    p0Hand: [ Card.ACE_OF_CLUBS ],
+    p0Points: [],
+    p0FaceCards: [],
+    p1Hand: [
+      Card.TWO_OF_HEARTS,
+      Card.THREE_OF_DIAMONDS,
+      Card.FOUR_OF_SPADES,
+      Card.FIVE_OF_HEARTS,
+      Card.SIX_OF_DIAMONDS,
+    ],
+    p1Points: [],
+    p1FaceCards: [],
+  };
+  const hiddenOpponentCard = '[data-opponent-hand-card=""]';
+  const revealedOpponentCard = '[data-opponent-hand-card]:not([data-opponent-hand-card=""])';
+
+  [ 'hidden', 'revealed' ].forEach((handState) => {
+    overflowViewports.forEach(({ name, width, height }) => {
+      it(`Keeps the ${handState} opponent hand clear of the opponent score at ${name} width`, () => {
+        cy.viewport(width, height);
+        if (handState === 'revealed') {
+          cy.loadGameFixture(0, { ...opponentHandFixture, p0FaceCards: [ Card.EIGHT_OF_CLUBS ] });
+          cy.get(revealedOpponentCard).should('have.length', 5);
+        } else {
+          cy.loadGameFixture(0, opponentHandFixture);
+          cy.get(hiddenOpponentCard).should('have.length', 5);
+        }
+
+        // Every opponent card picture must end above the top of the POINTS / GOAL label.
+        // Measure the img, not the card element: the picture can spill out of the card's box
+        cy.get('#opponent-score').then(($score) => {
+          const scoreTop = $score[0].getBoundingClientRect().top;
+          cy.get('[data-opponent-hand-card] img').each(($picture) => {
+            const { bottom } = $picture[0].getBoundingClientRect();
+            expect(bottom, 'opponent card picture bottom edge').to.be.at.most(scoreTop);
+          });
+        });
+      });
+    });
+  });
+
   it('Three dialogs', () => {
     // Set Up
     cy.loadGameFixture(0, {
