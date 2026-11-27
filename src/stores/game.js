@@ -28,27 +28,26 @@ function queenCount(player) {
 
 const compareByRankThenSuit = (card1, card2) => card1.rank - card2.rank || card1.suit - card2.suit;
 
-const setPlayers = (player) => {
-  /**
-   * Leaves a hand holding hidden cards in the order the server sent it. Hidden cards have no rank
-   * or suit, so there is no ordering that covers a partly revealed hand: sorting one would compare
-   * the revealed cards to each other while every comparison against a hidden card came back equal,
-   * and adjacent revealed cards would jump position at the moment they were revealed.
-   */
-  const sortCards = (cards) => {
-    if (cards?.some(({ isHidden }) => isHidden)) {
-      return cards;
-    }
-    return cards?.sort(compareByRankThenSuit);
-  };
-
-  return {
-    ...player,
-    hand: sortCards(player.hand)?.map((card) => createGameCard(card)),
-    points: sortCards(player.points)?.map((card) => createGameCard(card)),
-    faceCards: sortCards(player.faceCards)?.map((card) => createGameCard(card)),
-  };
+/**
+ * Leaves a hand holding hidden cards in the order the server sent it. Hidden cards have no rank
+ * or suit, so there is no ordering that covers a partly revealed hand: sorting one would compare
+ * the revealed cards to each other while every comparison against a hidden card came back equal,
+ * and adjacent revealed cards would jump position at the moment they were revealed.
+ */
+const sortCards = (cards) => {
+  if (cards?.some(({ isHidden }) => isHidden)) {
+    return cards;
+  }
+  return cards?.sort(compareByRankThenSuit);
 };
+
+// Hands are left in the server's order here; updateGame sorts them once it knows whose is whose
+const setPlayers = (player) => ({
+  ...player,
+  hand: player.hand?.map((card) => createGameCard(card)),
+  points: sortCards(player.points)?.map((card) => createGameCard(card)),
+  faceCards: sortCards(player.faceCards)?.map((card) => createGameCard(card)),
+});
 
 class GameCard {
   constructor(card) {
@@ -302,6 +301,18 @@ export const useGameStore = defineStore('game', () => {
     passes.value = newGame.passes ?? passes.value;
     const previousOpponentHand = opponent.value?.hand ?? [];
     players.value = newGame.players?.map((player) => setPlayers(player)) ?? players.value;
+    // A player's opponent's hand keeps the server's order even once it is all face up (e.g. through
+    // glasses), so a card that is already showing never moves when the rest are revealed or drawn.
+    // Someone without a seat in the game sees both hands face up throughout, so nothing flips and
+    // both stay sorted. Asking about the seated username, rather than the url or the perspective
+    // being viewed, gives the same answer on every update: while a spectate route is still loading,
+    // and when a former player replays their game from the other seat
+    const viewerHasSeat = players.value.some(({ username }) => username === authStore.username);
+    players.value.forEach((handOwner) => {
+      if (!viewerHasSeat || handOwner.username === authStore.username) {
+        handOwner.hand = sortCards(handOwner.hand);
+      }
+    });
     if (opponent.value?.hand) {
       opponent.value.hand = assignHandKeys(previousOpponentHand, opponent.value.hand);
     }
